@@ -22,7 +22,7 @@ def game_list(request):
         games = Game.objects.all()
         # when many is set to true django uses listserializer. for many instances
         games_serializer = GameSerializer(games, many=True)
-        return JSONResponse(games_serializer)
+        return JSONResponse(games_serializer.data)
 
     elif request.method == 'POST':
         game_data = JSONParser().parse(request)
