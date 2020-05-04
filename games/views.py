@@ -1,6 +1,8 @@
+from django.contrib.auth.models import User
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework import permissions
 from rest_framework.decorators import api_view
 from rest_framework.renderers import JSONRenderer
 from rest_framework.parsers import JSONParser
@@ -9,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.reverse import reverse
 from games.models import *
+from games.permissions import IsOwnerReadOnly
 from games.serializers import *
 
 
@@ -63,6 +66,7 @@ from games.serializers import *
 #         game.delete()
 #         return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
+
 class ApiRoot(generics.GenericAPIView):
     name = 'api-root'
 
@@ -72,7 +76,20 @@ class ApiRoot(generics.GenericAPIView):
             'game-categories': reverse(GameCategoryList.name, request=request),
             'games': reverse(GameList.name, request=request),
             'scores': reverse(PlayerScoreList.name, request=request),
+            'users': reverse(UserList.name, request=request),
         })
+
+
+class UserList(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    name = 'user-list'
+
+
+class UserDetail(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    name = 'user-detail'
 
 
 class GameCategoryList(generics.ListCreateAPIView):
@@ -91,12 +108,23 @@ class GameList(generics.ListCreateAPIView):
     queryset = Game.objects.all()
     serializer_class = GameSerializer
     name = 'game-list'
+    permission_classes = (
+        permissions.IsAuthenticatedOrReadOnly,
+        IsOwnerReadOnly
+    )
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 
 class GameDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Game.objects.all()
     serializer_class = GameSerializer
     name = 'game-detail'
+    permission_classes = (
+        permissions.IsAuthenticatedOrReadOnly,
+        IsOwnerReadOnly
+    )
 
 
 class PlayerList(generics.ListCreateAPIView):
