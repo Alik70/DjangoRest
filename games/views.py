@@ -10,9 +10,17 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.reverse import reverse
+from rest_framework.throttling import ScopedRateThrottle
+# from rest_framework import filters
+from django_filters import NumberFilter, DateTimeFilter, AllValuesFilter
+from django_filters import rest_framework as filters
+
 from games.models import *
 from games.permissions import IsOwnerReadOnly
 from games.serializers import *
+
+
+# TODO Token based auth will be added to the views
 
 
 # class JSONResponse(HttpResponse):
@@ -66,6 +74,26 @@ from games.serializers import *
 #         game.delete()
 #         return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
+class PlayerScoreFilter(filters.FilterSet):
+    min_score = NumberFilter(field_name='score', lookup_expr='gte')
+    max_score = NumberFilter(field_name='score', lookup_expr='lte')
+    from_score_date = DateTimeFilter(field_name='score_date', lookup_expr='gte')
+    to_score_date = DateTimeFilter(field_name='score_date', lookup_expr='lte')
+    player_name = AllValuesFilter(field_name='player__name')
+    game_name = AllValuesFilter(field_name='game__name')
+
+    class Meta:
+        model = PlayerScore
+        fields = (
+            'score',
+            'from_score_date',
+            'to_score_date',
+            'min_score',
+            'max_score',
+            'player_name',
+            'game_name',
+        )
+
 
 class ApiRoot(generics.GenericAPIView):
     name = 'api-root'
@@ -96,12 +124,33 @@ class GameCategoryList(generics.ListCreateAPIView):
     queryset = GameCategory.objects.all()
     serializer_class = GameCategorySerializer
     name = 'gamecategory-list'
+    # throttling on this side we use the scopes defined in
+    # settings and the base class of restf
+    throttle_scope = 'game-categories'
+    throttle_classes = (ScopedRateThrottle,)
+    # adding the filterings
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ['name', ]
+    search_fields = (
+        '^name',
+    )
+    ordering_fields = (
+        'name',
+        'release_date',
+    )
+    # filter_fields = ('name',)
+    # search_fields = ('^name',)
+    # ordering_fields = ('name',)
 
 
+# throttle classes are checked before the body of our
+# view and the cache stores the prev req info
 class GameCategoryDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = GameCategory.objects.all()
     serializer_class = GameCategorySerializer
     name = 'gamecategory-detail'
+    throttle_scope = 'game-categories'
+    throttle_classes = (ScopedRateThrottle,)
 
 
 class GameList(generics.ListCreateAPIView):
@@ -111,6 +160,19 @@ class GameList(generics.ListCreateAPIView):
     permission_classes = (
         permissions.IsAuthenticatedOrReadOnly,
         IsOwnerReadOnly
+    )
+
+    filter_fields = (
+        'name',
+        'game_category',
+        'release_date',
+        'played',
+        'owner',
+    )
+    search_fields = ['name', ]
+    ordering_fields = (
+        'name',
+        'release_date',
     )
 
     def perform_create(self, serializer):
@@ -131,6 +193,9 @@ class PlayerList(generics.ListCreateAPIView):
     queryset = Player.objects.all()
     serializer_class = PlayerSerializer
     name = 'player-list'
+    filter_fields = ['name', 'gender']
+    search_fields = ['name', ]
+    ordering_fields = ['name', ]
 
 
 class PlayerDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -143,6 +208,8 @@ class PlayerScoreList(generics.ListCreateAPIView):
     queryset = PlayerScore.objects.all()
     serializer_class = PlayerScoreSerializer
     name = 'playerscore-list'
+    filter_class = PlayerScoreFilter
+    ordering_fields = ['score', 'score_date', ]
 
 
 class PlayerScoreDetail(generics.RetrieveUpdateDestroyAPIView):

@@ -22,7 +22,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '6bbhhnnnkl1!9+((im9^sq33p0un@g!=akq(2yy!%qa#q!vqqu'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['0.0.0.0']
 
@@ -38,10 +38,13 @@ INSTALLED_APPS = [
     # local apps
 
     'games.apps.GamesConfig',
+
     # third party apps
 
     'rest_framework',
-
+    'crispy_forms',
+    'django_filters',
+    'django_nose',
 ]
 
 MIDDLEWARE = [
@@ -113,7 +116,24 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication'
-    )
+    ),
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '5/hour',
+        'user': '20/hour',
+        'game-categories': '30/hour',
+    },
+
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ]
+
 }
 
 # Internationalization
@@ -133,3 +153,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
 STATIC_URL = '/static/'
+
+NOSE_ARGS = [
+    '--with-coverage',
+    '--cover-erase',
+    '--cover-inclusive',
+    '--cover-package=games',
+]
